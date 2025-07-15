@@ -1,4 +1,4 @@
-# YouTube Guess the Song Game
+# Melody Master - YouTube Guess the Song Game
 
 A web-based game where players guess songs from YouTube snippets. Add YouTube links, reorder them with drag-and-drop, and play snippets directly in the browser.
 
