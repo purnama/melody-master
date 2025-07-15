@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Melody Master - YouTube Song Guessing Game</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top to prevent content overflow */
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .game-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        .input-group label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .input-group input[type="text"],
+        .input-group input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            color: #555;
+            transition: border-color 0.3s ease;
+        }
+        .input-group input[type="text"]:focus,
+        .input-group input[type="number"]:focus {
+            outline: none;
+            border-color: #6366f1; /* Indigo-500 */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .btn {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background-color: #6366f1; /* Indigo-500 */
+            color: white;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        }
+        .btn-primary:hover {
+            background-color: #4f46e5; /* Indigo-600 */
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background-color: #e0e7ff; /* Indigo-100 */
+            color: #4f46e5; /* Indigo-600 */
+            box-shadow: 0 4px 10px rgba(224, 231, 255, 0.3);
+        }
+        .btn-secondary:hover {
+            background-color: #c7d2fe; /* Indigo-200 */
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background-color: #ef4444; /* Red-500 */
+            color: white;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+        }
+        .btn-danger:hover {
+            background-color: #dc2626; /* Red-600 */
+            transform: translateY(-2px);
+        }
+        .song-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            color: #444;
+            border: 1px solid #f3f4f6;
+            cursor: move;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .song-list-item.dragging {
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        .song-list-item.drag-over-top {
+            margin-top: 50px !important;
+            transition: margin-top 0.3s ease;
+        }
+        .song-list-item.drag-over-bottom {
+            margin-bottom: 50px !important;
+            transition: margin-bottom 0.3s ease;
+        }
+        .drop-indicator {
+            height: 3px;
+            background-color: #6366f1;
+            border-radius: 2px;
+            margin: 10px 0;
+            opacity: 0.8;
+            transition: all 0.2s ease;
+        }
+        .drag-handle {
+            color: #9ca3af;
+            margin-right: 8px;
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        .drag-ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            background-color: #f9fafb;
+            border: 1px solid #6366f1;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            transform: rotate(5deg);
+            transition: none;
+            opacity: 0.95;
+        }
+        .song-list-item button {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 0.2s ease;
+        }
+        .song-list-item button:hover {
+            color: #dc2626;
+        }
+        #player {
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
+            height: 360px; /* Standard 16:9 aspect ratio for 640px width */
+            background-color: #000; /* Placeholder background */
+        }
+        .message-box {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            display: none; /* Hidden by default */
+        }
+        .message-box button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        /* Footer at bottom of content */
+        .footer {
+            width: 100%;
+            text-align: center;
+            padding: 20px 0;
+            margin-top: 40px;
+            border-top: 1px solid #e5e7eb;
+            clear: both;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="game-container">
+        <h1 class="text-3xl font-bold text-center text-indigo-700 mb-6">Melody Master 🎵</h1>
+
+        <!-- How to Play Section -->
+        <div class="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-800">
+            <h2 class="text-lg font-semibold mb-2">How to Play Melody Master</h2>
+            <ol class="list-decimal list-inside mb-2">
+                <li>Add YouTube video URLs and (optionally) set a start time for each song.</li>
+                <li>Use the drag handle (⋮⋮) to reorder your playlist by dragging songs up or down.</li>
+                <li>Click <span class="font-semibold">Play Snippet</span> to play the current song from the chosen start time.</li>
+                <li>Try to guess the song title! Use <span class="font-semibold">Next Song</span> to move to the next one.</li>
+                <li>Remove songs with the ✖ button if needed.</li>
+            </ol>
+            <div class="font-bold text-center mt-2">Enjoy Melody Master! 🎶</div>
+        </div>
+        <!-- End How to Play Section -->
+
+        <!-- Input Section -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="input-group md:col-span-2">
+                <label for="youtubeUrl">YouTube Video URL:</label>
+                <input type="text" id="youtubeUrl" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s or https://youtu.be/dQw4w9WgXcQ#1m20s">
+            </div>
+            <div class="input-group">
+                <label for="startTime">Start Time (seconds):</label>
+                <input type="number" id="startTime" value="0" min="0">
+            </div>
+        </div>
+        <button id="addSongBtn" class="btn btn-primary w-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
+            </svg>
+            Add Song
+        </button>
+
+        <!-- Song List Display -->
+        <div class="mt-8">
+            <h2 class="text-xl font-semibold text-indigo-600 mb-4">Added Songs:</h2>
+            <h2 class="text-xl font-semibold text-indigo-600 mb-4">Your Playlist:</h2>
+            <ul id="songListDisplay" class="space-y-3">
+                <!-- Songs will be listed here -->
+                <li class="text-gray-500 text-center py-4" id="noSongsMessage">No songs added yet. Add some to start playing Melody Master!</li>
+            </ul>
+        </div>
+
+        <!-- Player and Controls -->
+        <div class="mt-8 text-center">
+            <h2 class="text-xl font-semibold text-indigo-600 mb-4">Current Song: <span id="currentSongTitle" class="text-gray-700">N/A</span></h2>
+            <h2 class="text-xl font-semibold text-indigo-600 mb-4">Now Playing: <span id="currentSongTitle" class="text-gray-700">N/A</span></h2>
+            <div id="player" class="mx-auto mb-6"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button id="playBtn" class="btn btn-primary" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    Play Snippet
+                </button>
+                <button id="stopBtn" class="btn btn-secondary" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm1-1H7a1 1 0 01-1-1V7a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    Stop Snippet
+                </button>
+                <button id="nextBtn" class="btn btn-secondary" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-3.707-8.707a1 1 0 000 1.414L10.586 16H8a1 1 0 100 2h5a1 1 0 001-1V8a1 1 0 10-2 0v2.586l-2.707-2.707a1 1 0 00-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    Next Song
+                </button>
+            </div>
+    </div>
+
+    <!-- Message Box for alerts -->
+    <div id="messageBox" class="message-box">
+        <p id="messageText" class="text-gray-700 mb-4"></p>
+        <button id="messageBoxCloseBtn" class="btn btn-primary">OK</button>
+    </div>
+
+    <!-- Footer License and GitHub Link -->
+    <footer class="footer mt-12 text-center text-gray-500 text-sm">
+        <div class="mb-2">
+            <a href="https://github.com/purnama/melody-master" target="_blank" rel="noopener" class="text-indigo-600 hover:underline font-semibold">Melody Master on GitHub</a>
+        </div>
+        <div class="mb-2">
+            <strong>License:</strong> MIT. &copy; 2025 Purnama
+        </div>
+        <div class="mb-2">
+            <span class="font-semibold">Melody Master</span> is an open-source YouTube song guessing game.
+        </div>
+    </footer>
+
+    <script>
+        // Global variables for YouTube player and game state
+        let player;
+        let songList = [];
+        let currentSongIndex = 0;
+
+        // DOM elements
+        const youtubeUrlInput = document.getElementById('youtubeUrl');
+        const startTimeInput = document.getElementById('startTime');
+        const addSongBtn = document.getElementById('addSongBtn');
+        const songListDisplay = document.getElementById('songListDisplay');
+        const noSongsMessage = document.getElementById('noSongsMessage');
+        const currentSongTitleSpan = document.getElementById('currentSongTitle');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const messageBoxCloseBtn = document.getElementById('messageBoxCloseBtn');
+
+        // --- Message Box Functions ---
+        function showMessage(message) {
+            messageText.textContent = message;
+            messageBox.style.display = 'block';
+        }
+
+        function hideMessageBox() {
+            messageBox.style.display = 'none';
+        }
+
+        messageBoxCloseBtn.addEventListener('click', hideMessageBox);
+
+        // --- YouTube IFrame Player API functions ---
+
+        // This function creates an <iframe> (and YouTube player)
+        // after the API code downloads.
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height: '360',
+                width: '100%',
+                videoId: '', // Will be set dynamically
+                playerVars: {
+                    'playsinline': 1,
+                    'controls': 1, // Show player controls
+                    'disablekb': 1, // Disable keyboard controls
+                    'modestbranding': 1, // Hide YouTube logo
+                    'rel': 0 // Do not show related videos
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        // The API will call this function when the video player is ready.
+        function onPlayerReady(event) {
+            console.log('YouTube Player is ready.');
+            // Enable buttons if there are songs already loaded (e.g., from local storage)
+            if (songList.length > 0) {
+                updateControlsState(true);
+                displayCurrentSong();
+            }
+        }
+
+        // The API calls this function when the player's state changes.
+        function onPlayerStateChange(event) {
+            // Player state change handler - currently no specific functionality needed
+        }
+
+        // --- Helper Functions ---
+
+        // Extracts YouTube video ID and start time from various URL formats
+        function getYouTubeVideoInfo(url) {
+            let videoId = '';
+            let startTime = 0; // Default to 0 seconds
+
+            // Regex to find video ID
+            const videoIdRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i;
+            const videoIdMatch = url.match(videoIdRegex);
+            if (videoIdMatch && videoIdMatch[1]) {
+                videoId = videoIdMatch[1];
+            }
+
+            // Try to parse URL for 't' parameter or hash time
+            try {
+                const urlObj = new URL(url);
+                const tParam = urlObj.searchParams.get('t');
+                if (tParam) {
+                    // Handle formats like 1h2m3s or just 90s or 90
+                    const hoursMatch = tParam.match(/(\d+)h/);
+                    const minutesMatch = tParam.match(/(\d+)m/);
+                    const secondsMatch = tParam.match(/(\d+)s/);
+                    let totalSeconds = 0;
+                    if (hoursMatch) totalSeconds += parseInt(hoursMatch[1]) * 3600;
+                    if (minutesMatch) totalSeconds += parseInt(minutesMatch[1]) * 60;
+                    if (secondsMatch) totalSeconds += parseInt(secondsMatch[1]);
+
+                    // If no h/m/s found, try to parse as direct seconds
+                    if (totalSeconds === 0 && !isNaN(parseInt(tParam))) {
+                        totalSeconds = parseInt(tParam);
+                    }
+                    startTime = totalSeconds;
+                } else if (urlObj.hash) {
+                    // Handle hash formats like #t=1m20s or #90
+                    const hash = urlObj.hash.substring(1); // Remove the '#'
+                    const hashTimeMatch = hash.match(/^(?:t=)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+                    if (hashTimeMatch && (hashTimeMatch[1] || hashTimeMatch[2] || hashTimeMatch[3])) {
+                        let totalSeconds = 0;
+                        if (hashTimeMatch[1]) totalSeconds += parseInt(hashTimeMatch[1]) * 3600;
+                        if (hashTimeMatch[2]) totalSeconds += parseInt(hashTimeMatch[2]) * 60;
+                        if (hashTimeMatch[3]) totalSeconds += parseInt(hashTimeMatch[3]);
+                        startTime = totalSeconds;
+                    } else if (!isNaN(parseInt(hash))) { // Handle simple #seconds format
+                        startTime = parseInt(hash);
+                    }
+                }
+            } catch (e) {
+                // URL might be malformed, fall back to default startTime
+                console.warn("Could not parse URL for start time:", e);
+            }
+
+            return { videoId, startTime };
+        }
+
+        // Fetches video title using YouTube oEmbed endpoint (no API key needed)
+        async function fetchYouTubeVideoTitle(videoId) {
+            try {
+                const response = await fetch(`https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v=${videoId}&format=json`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch video title.');
+                }
+                const data = await response.json();
+                return data.title;
+            } catch (error) {
+                console.error('Error fetching video title:', error);
+                return 'Unknown Title';
+            }
+        }
+
+        // Updates the state of control buttons
+        function updateControlsState(enable) {
+            playBtn.disabled = !enable;
+            stopBtn.disabled = !enable;
+            nextBtn.disabled = !enable;
+        }
+
+        // Renders the list of added songs
+        function renderSongList() {
+            songListDisplay.innerHTML = ''; // Clear existing list
+            if (songList.length === 0) {
+                noSongsMessage.style.display = 'block';
+                updateControlsState(false);
+                currentSongTitleSpan.textContent = 'N/A';
+                if (player && player.cueVideoById) {
+                    player.cueVideoById(''); // Clear the player
+                }
+                return;
+            } else {
+                noSongsMessage.style.display = 'none';
+                updateControlsState(true);
+            }
+
+            songList.forEach((song, index) => {
+                const listItem = document.createElement('li');
+                listItem.className = 'song-list-item';
+                listItem.dataset.index = index;
+                
+                const dragHandle = songList.length >= 2 ? '<span class="drag-handle">⋮⋮</span>' : '';
+                
+                listItem.innerHTML = `
+                    <span style="display: flex; align-items: center;">
+                        ${dragHandle}
+                        ${index + 1}. ${song.title} (starts at ${song.start}s)
+                    </span>
+                    <button data-index="${index}" class="delete-song-btn">✖</button>
+                `;
+                songListDisplay.appendChild(listItem);
+
+                // Add drag event listeners if draggable
+                if (songList.length >= 2) {
+                    addDragListeners(listItem);
+                }
+            });
+
+            // Add event listeners for delete buttons
+            document.querySelectorAll('.delete-song-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const indexToDelete = parseInt(event.target.dataset.index);
+                    deleteSong(indexToDelete);
+                });
+            });
+
+            // Ensure current song is displayed if list is not empty
+            displayCurrentSong();
+        }
+
+        // Displays the title of the current song being played/cued
+        function displayCurrentSong() {
+            if (songList.length > 0) {
+                currentSongTitleSpan.textContent = songList[currentSongIndex].title;
+            } else {
+                currentSongTitleSpan.textContent = 'N/A';
+            }
+        }
+
+        // --- Game Logic Functions ---
+
+        async function addSong() {
+            const url = youtubeUrlInput.value.trim();
+            const manualStartTime = parseInt(startTimeInput.value); // Get manual input
+
+            if (!url) {
+                showMessage('Please enter a YouTube video URL.');
+                return;
+            }
+
+            const { videoId, startTime: detectedStartTime } = getYouTubeVideoInfo(url);
+
+            if (!videoId) {
+                showMessage('Invalid YouTube URL. Please check the format.');
+                return;
+            }
+
+            // Prioritize detected start time from URL, otherwise use manual input
+            const finalStartTime = (detectedStartTime > 0 && !isNaN(detectedStartTime)) ? detectedStartTime : (isNaN(manualStartTime) ? 0 : manualStartTime);
+
+            const title = await fetchYouTubeVideoTitle(videoId);
+
+            songList.push({ id: videoId, start: finalStartTime, title: title });
+            youtubeUrlInput.value = '';
+            startTimeInput.value = '0'; // Reset for next entry
+            renderSongList();
+            saveSongs(); // Save to local storage
+            showMessage(`"${title}" added successfully! (Starts at ${finalStartTime}s)`);
+        }
+
+        function deleteSong(index) {
+            if (songList.length === 0) return;
+
+            const deletedSongTitle = songList[index].title;
+            songList.splice(index, 1);
+
+            // Adjust currentSongIndex if the deleted song was before or was the current one
+            if (currentSongIndex > index || (currentSongIndex === index && currentSongIndex === songList.length)) {
+                currentSongIndex = Math.max(0, currentSongIndex - 1);
+            } else if (currentSongIndex === index && songList.length === 0) {
+                currentSongIndex = 0; // Reset if last song was deleted
+            }
+
+            if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+                player.pauseVideo();
+            }
+
+            renderSongList();
+            saveSongs(); // Save to local storage
+            showMessage(`"${deletedSongTitle}" removed.`);
+        }
+
+        function playSnippet() {
+            if (songList.length === 0) {
+                showMessage('No songs in the list. Please add a song first.');
+                return;
+            }
+
+            const currentSong = songList[currentSongIndex];
+            if (player) {
+                // Load and play the video from the specified start time
+                player.loadVideoById({
+                    videoId: currentSong.id,
+                    startSeconds: currentSong.start
+                });
+                player.playVideo(); // Ensure playback starts
+                displayCurrentSong();
+            }
+        }
+
+        function stopSnippet() {
+            if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+                player.pauseVideo();
+            }
+        }
+
+        function nextSong() {
+            if (songList.length === 0) {
+                showMessage('No songs in the list to go to the next one.');
+                return;
+            }
+
+            stopSnippet(); // Stop current playback
+
+            currentSongIndex = (currentSongIndex + 1) % songList.length;
+            displayCurrentSong();
+            playSnippet(); // Automatically play the next song's snippet
+        }
+
+        // --- Local Storage Functions ---
+        function saveSongs() {
+            try {
+                localStorage.setItem('melodyMasterSongs', JSON.stringify(songList));
+            } catch (e) {
+                console.error('Error saving songs to local storage:', e);
+                showMessage('Could not save songs. Your browser might be in private mode or storage is full.');
+            }
+        }
+
+        function loadSongs() {
+            try {
+                const savedSongs = localStorage.getItem('melodyMasterSongs');
+                if (savedSongs) {
+                    songList = JSON.parse(savedSongs);
+                    renderSongList();
+                    if (songList.length > 0) {
+                        currentSongIndex = 0; // Start from the first song
+                        displayCurrentSong();
+                        // Player will be cued in onPlayerReady if songs exist
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading songs from local storage:', e);
+                showMessage('Could not load saved songs. Data might be corrupted.');
+                songList = []; // Reset list if corrupted
+                renderSongList();
+            }
+        }
+
+        // --- Drag and Drop Functions ---
+        let draggedElement = null;
+        let dragGhost = null;
+        let isDragging = false;
+
+        function addDragListeners(listItem) {
+            // Only make the drag handle draggable, not the entire item
+            const dragHandle = listItem.querySelector('.drag-handle');
+            if (dragHandle) {
+                dragHandle.addEventListener('mousedown', initiateDrag);
+            }
+        }
+
+        function initiateDrag(e) {
+            e.preventDefault();
+            const listItem = e.target.closest('.song-list-item');
+            if (!listItem) return;
+
+            draggedElement = listItem;
+            isDragging = true;
+            
+            // Create drag ghost
+            dragGhost = listItem.cloneNode(true);
+            dragGhost.className = 'drag-ghost';
+            dragGhost.style.width = listItem.offsetWidth + 'px';
+            dragGhost.style.height = listItem.offsetHeight + 'px';
+            dragGhost.style.left = (e.clientX - listItem.offsetWidth / 2) + 'px';
+            dragGhost.style.top = (e.clientY - listItem.offsetHeight / 2) + 'px';
+            document.body.appendChild(dragGhost);
+            
+            // Add dragging class to original element
+            listItem.classList.add('dragging');
+            
+            // Add global mouse event listeners
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            
+            // Prevent text selection during drag
+            document.body.style.userSelect = 'none';
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging || !dragGhost) return;
+            
+            // Update ghost position
+            dragGhost.style.left = (e.clientX - dragGhost.offsetWidth / 2) + 'px';
+            dragGhost.style.top = (e.clientY - dragGhost.offsetHeight / 2) + 'px';
+            
+            // Find the closest song item for spacing animation
+            const songItems = document.querySelectorAll('.song-list-item:not(.dragging)');
+            
+            // Remove all existing spacing classes first
+            songItems.forEach(item => {
+                item.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+
+            if (songItems.length === 0) return;
+
+            // Find which item we're closest to and whether we're above or below it
+            let closestItem = null;
+            let minDistance = Infinity;
+            let insertPosition = 'bottom';
+            let isOverItem = false;
+
+            songItems.forEach(item => {
+                const rect = item.getBoundingClientRect();
+                const itemTop = rect.top;
+                const itemBottom = rect.bottom;
+                const itemCenterY = itemTop + rect.height / 2;
+                
+                // Check if mouse is vertically within the item bounds (with some tolerance)
+                if (e.clientY >= itemTop - 25 && e.clientY <= itemBottom + 25) {
+                    isOverItem = true;
+                    const distance = Math.abs(e.clientY - itemCenterY);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestItem = item;
+                        insertPosition = e.clientY < itemCenterY ? 'top' : 'bottom';
+                    }
+                }
+            });
+
+            // If we're not over any item, find the closest one by Y position
+            if (!isOverItem) {
+                songItems.forEach(item => {
+                    const rect = item.getBoundingClientRect();
+                    const itemCenterY = rect.top + rect.height / 2;
+                    const distance = Math.abs(e.clientY - itemCenterY);
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestItem = item;
+                        insertPosition = e.clientY < itemCenterY ? 'top' : 'bottom';
+                    }
+                });
+            }
+
+            // Add spacing animation to show drop zone
+            if (closestItem) {
+                if (insertPosition === 'top') {
+                    closestItem.classList.add('drag-over-top');
+                } else {
+                    closestItem.classList.add('drag-over-bottom');
+                }
+            }
+        }
+
+        function handleMouseUp(e) {
+            if (!isDragging) return;
+            
+            // Find the target position using the same logic as handleMouseMove
+            const songItems = document.querySelectorAll('.song-list-item:not(.dragging)');
+            let targetItem = null;
+            let insertPosition = 'bottom';
+            let shouldReorder = false;
+
+            if (songItems.length > 0) {
+                let minDistance = Infinity;
+                let isOverItem = false;
+
+                // First, check if we're over any item
+                songItems.forEach(item => {
+                    const rect = item.getBoundingClientRect();
+                    const itemTop = rect.top;
+                    const itemBottom = rect.bottom;
+                    const itemCenterY = itemTop + rect.height / 2;
+                    
+                    if (e.clientY >= itemTop - 25 && e.clientY <= itemBottom + 25) {
+                        isOverItem = true;
+                        const distance = Math.abs(e.clientY - itemCenterY);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            targetItem = item;
+                            insertPosition = e.clientY < itemCenterY ? 'top' : 'bottom';
+                            shouldReorder = true;
+                        }
+                    }
+                });
+
+                // If not over any item, find closest one
+                if (!isOverItem) {
+                    songItems.forEach(item => {
+                        const rect = item.getBoundingClientRect();
+                        const itemCenterY = rect.top + rect.height / 2;
+                        const distance = Math.abs(e.clientY - itemCenterY);
+                        
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            targetItem = item;
+                            insertPosition = e.clientY < itemCenterY ? 'top' : 'bottom';
+                            shouldReorder = true;
+                        }
+                    });
+                }
+            }
+
+            // Perform the reordering if we have a valid target
+            if (targetItem && draggedElement && shouldReorder) {
+                reorderSongs(targetItem, insertPosition);
+            }
+
+            // Clean up
+            cleanup();
+        }
+
+        function reorderSongs(targetItem, insertPosition) {
+            const draggedIndex = parseInt(draggedElement.dataset.index);
+            const targetIndex = parseInt(targetItem.dataset.index);
+            
+            let newIndex = targetIndex;
+            if (insertPosition === 'bottom') {
+                newIndex = targetIndex + 1;
+            }
+            
+            // Adjust for removal of dragged item
+            if (draggedIndex < newIndex) {
+                newIndex--;
+            }
+            
+            // Only reorder if position actually changed
+            if (draggedIndex !== newIndex) {
+                // Reorder the songList array
+                const draggedSong = songList[draggedIndex];
+                songList.splice(draggedIndex, 1);
+                songList.splice(newIndex, 0, draggedSong);
+                
+                // Update currentSongIndex if necessary
+                if (currentSongIndex === draggedIndex) {
+                    currentSongIndex = newIndex;
+                } else if (draggedIndex < currentSongIndex && newIndex >= currentSongIndex) {
+                    currentSongIndex--;
+                } else if (draggedIndex > currentSongIndex && newIndex <= currentSongIndex) {
+                    currentSongIndex++;
+                }
+                
+                // Re-render and save
+                renderSongList();
+                saveSongs();
+            }
+        }
+
+        function cleanup() {
+            isDragging = false;
+            
+            // Remove all drag classes
+            document.querySelectorAll('.song-list-item').forEach(item => {
+                item.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom');
+            });
+            
+            // Remove drag ghost
+            if (dragGhost && dragGhost.parentNode) {
+                dragGhost.parentNode.removeChild(dragGhost);
+            }
+            
+            // Remove event listeners
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            
+            // Restore text selection
+            document.body.style.userSelect = '';
+            
+            // Reset variables
+            draggedElement = null;
+            dragGhost = null;
+        }
+
+        // --- Event Listeners ---
+        addSongBtn.addEventListener('click', addSong);
+
+        // Event listener to automatically populate start time from URL
+        youtubeUrlInput.addEventListener('input', () => {
+            const url = youtubeUrlInput.value.trim();
+            const { videoId, startTime } = getYouTubeVideoInfo(url);
+            if (videoId) { // Only update if a valid video ID is found
+                startTimeInput.value = startTime;
+            } else { // If URL is invalid or cleared, reset start time
+                startTimeInput.value = '0';
+            }
+        });
+
+        playBtn.addEventListener('click', playSnippet);
+        stopBtn.addEventListener('click', stopSnippet);
+        nextBtn.addEventListener('click', nextSong);
+
+        // --- Initialize on page load ---
+        window.onload = function() {
+            // Load the YouTube IFrame Player API code asynchronously.
+            const tag = document.createElement('script');
+            tag.src = 'https://www.youtube.com/iframe_api';
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+            loadSongs(); // Load songs from local storage when the page loads
+        };
+    </script>
+</body>
+</html>
