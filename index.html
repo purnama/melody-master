@@ -209,7 +209,8 @@
             <ol class="list-decimal list-inside mb-2">
                 <li>Add YouTube video URLs and (optionally) set a start time for each song.</li>
                 <li>Use the drag handle (⋮⋮) to reorder your playlist by dragging songs up or down.</li>
-                <li>Click <span class="font-semibold">Play Snippet</span> to play the current song from the chosen start time.</li>
+                <li>Click <span class="font-semibold">Play Snippet</span> to try playing the song here, or <span class="font-semibold">Open in YouTube</span> for copyright-restricted videos.</li>
+                <li>If a video can't play due to restrictions, you'll be offered to open it in a new YouTube tab automatically.</li>
                 <li>Try to guess the song title! Use <span class="font-semibold">Next Song</span> to move to the next one.</li>
                 <li>Remove songs with the ✖ button if needed.</li>
             </ol>
@@ -247,21 +248,26 @@
 
         <!-- Player and Controls -->
         <div class="mt-8 text-center">
-            <h2 class="text-xl font-semibold text-indigo-600 mb-4">Current Song: <span id="currentSongTitle" class="text-gray-700">N/A</span></h2>
             <h2 class="text-xl font-semibold text-indigo-600 mb-4">Now Playing: <span id="currentSongTitle" class="text-gray-700">N/A</span></h2>
             <div id="player" class="mx-auto mb-6"></div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <button id="playBtn" class="btn btn-primary" disabled>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
                     </svg>
                     Play Snippet
                 </button>
+                <button id="openYouTubeBtn" class="btn btn-secondary" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Open in YouTube
+                </button>
                 <button id="stopBtn" class="btn btn-secondary" disabled>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm1-1H7a1 1 0 01-1-1V7a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z" clip-rule="evenodd" />
                     </svg>
-                    Stop Snippet
+                    Stop
                 </button>
                 <button id="nextBtn" class="btn btn-secondary" disabled>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -296,6 +302,7 @@
         let player;
         let songList = [];
         let currentSongIndex = 0;
+        let currentYouTubeTab = null; // Track the current YouTube tab for restricted content
 
         // DOM elements
         const youtubeUrlInput = document.getElementById('youtubeUrl');
@@ -305,6 +312,7 @@
         const noSongsMessage = document.getElementById('noSongsMessage');
         const currentSongTitleSpan = document.getElementById('currentSongTitle');
         const playBtn = document.getElementById('playBtn');
+        const openYouTubeBtn = document.getElementById('openYouTubeBtn');
         const stopBtn = document.getElementById('stopBtn');
         const nextBtn = document.getElementById('nextBtn');
         const messageBox = document.getElementById('messageBox');
@@ -358,10 +366,57 @@
 
         // The API calls this function when the player's state changes.
         function onPlayerStateChange(event) {
-            // Player state change handler - currently no specific functionality needed
+            // Handle unplayable videos (copyright restricted, etc.)
+            if (event.data === YT.PlayerState.UNSTARTED || event.data === -1) {
+                // Check if video failed to load after a short delay
+                setTimeout(() => {
+                    if (player && (player.getPlayerState() === YT.PlayerState.UNSTARTED || player.getPlayerState() === -1)) {
+                        handleRestrictedContent();
+                    }
+                }, 2000);
+            }
+        }
+
+        // Handle videos that cannot be embedded (copyright restricted)
+        function handleRestrictedContent() {
+            if (songList.length === 0) return;
+            
+            const currentSong = songList[currentSongIndex];
+            const userConfirmed = confirm(
+                `This video appears to be restricted and cannot be played here. ` +
+                `Would you like to open "${currentSong.title}" in a new YouTube tab instead?`
+            );
+            
+            if (userConfirmed) {
+                const success = openYouTubeInNewTab(currentSong.id, currentSong.start);
+                if (success) {
+                    showMessage(`Opened "${currentSong.title}" in a new tab. The video will start at ${currentSong.start} seconds.`);
+                }
+            }
         }
 
         // --- Helper Functions ---
+
+        // Close current YouTube tab if open
+        function closeCurrentYouTubeTab() {
+            if (currentYouTubeTab && !currentYouTubeTab.closed) {
+                currentYouTubeTab.close();
+            }
+            currentYouTubeTab = null;
+        }
+
+        // Open YouTube video in new tab with start time
+        function openYouTubeInNewTab(videoId, startTime) {
+            closeCurrentYouTubeTab(); // Close previous tab first
+            const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}&t=${startTime}s`;
+            currentYouTubeTab = window.open(youtubeUrl, '_blank');
+            
+            if (!currentYouTubeTab) {
+                showMessage('Pop-up blocked! Please allow pop-ups for this site to open YouTube videos in new tabs.');
+                return false;
+            }
+            return true;
+        }
 
         // Extracts YouTube video ID and start time from various URL formats
         function getYouTubeVideoInfo(url) {
@@ -434,6 +489,7 @@
         // Updates the state of control buttons
         function updateControlsState(enable) {
             playBtn.disabled = !enable;
+            openYouTubeBtn.disabled = !enable;
             stopBtn.disabled = !enable;
             nextBtn.disabled = !enable;
         }
@@ -558,19 +614,61 @@
 
             const currentSong = songList[currentSongIndex];
             if (player) {
-                // Load and play the video from the specified start time
-                player.loadVideoById({
-                    videoId: currentSong.id,
-                    startSeconds: currentSong.start
-                });
-                player.playVideo(); // Ensure playback starts
-                displayCurrentSong();
+                try {
+                    // Try to load and play the video in the embedded player
+                    player.loadVideoById({
+                        videoId: currentSong.id,
+                        startSeconds: currentSong.start
+                    });
+                    player.playVideo();
+                    displayCurrentSong();
+                    
+                    // Set a timeout to check if the video failed to load
+                    setTimeout(() => {
+                        if (player.getPlayerState() === YT.PlayerState.UNSTARTED || player.getPlayerState() === -1) {
+                            // Video failed to load, offer to open in new tab
+                            const userWantsNewTab = confirm(
+                                `"${currentSong.title}" cannot be played here (likely due to copyright restrictions). ` +
+                                `Would you like to open it in a new YouTube tab instead?`
+                            );
+                            
+                            if (userWantsNewTab) {
+                                const success = openYouTubeInNewTab(currentSong.id, currentSong.start);
+                                if (success) {
+                                    showMessage(`Opened "${currentSong.title}" in a new tab starting at ${currentSong.start} seconds.`);
+                                }
+                            }
+                        }
+                    }, 3000); // Wait 3 seconds before checking
+                    
+                } catch (error) {
+                    console.error('Error playing video:', error);
+                    // Fallback to opening in new tab
+                    const success = openYouTubeInNewTab(currentSong.id, currentSong.start);
+                    if (success) {
+                        showMessage(`Opened "${currentSong.title}" in a new tab due to playback restrictions.`);
+                    }
+                }
             }
         }
 
         function stopSnippet() {
             if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
                 player.pauseVideo();
+            }
+            closeCurrentYouTubeTab(); // Also close any open YouTube tab
+        }
+
+        function openCurrentSongInYouTube() {
+            if (songList.length === 0) {
+                showMessage('No songs in the list.');
+                return;
+            }
+            
+            const currentSong = songList[currentSongIndex];
+            const success = openYouTubeInNewTab(currentSong.id, currentSong.start);
+            if (success) {
+                showMessage(`Opened "${currentSong.title}" in YouTube starting at ${currentSong.start} seconds.`);
             }
         }
 
@@ -581,6 +679,7 @@
             }
 
             stopSnippet(); // Stop current playback
+            closeCurrentYouTubeTab(); // Close any open YouTube tab
 
             currentSongIndex = (currentSongIndex + 1) % songList.length;
             displayCurrentSong();
@@ -858,6 +957,7 @@
         });
 
         playBtn.addEventListener('click', playSnippet);
+        openYouTubeBtn.addEventListener('click', openCurrentSongInYouTube);
         stopBtn.addEventListener('click', stopSnippet);
         nextBtn.addEventListener('click', nextSong);
 
@@ -871,6 +971,11 @@
 
             loadSongs(); // Load songs from local storage when the page loads
         };
+
+        // Clean up YouTube tabs when page is about to unload
+        window.addEventListener('beforeunload', function() {
+            closeCurrentYouTubeTab();
+        });
     </script>
 </body>
 </html>
